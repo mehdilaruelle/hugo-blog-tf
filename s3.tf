@@ -46,13 +46,45 @@ data "aws_iam_policy_document" "s3_bucket_policy" {
 resource "aws_s3_bucket" "hugo" {
   bucket        = local.bucket_name
   force_destroy = false
-  acl           = "private"
-  policy        = data.aws_iam_policy_document.s3_bucket_policy.json
+}
 
-  website {
-    index_document = "index.html"
-    error_document = "404.html"
+resource "aws_s3_bucket_policy" "hugo" {
+  bucket = aws_s3_bucket.hugo.id
+  policy = data.aws_iam_policy_document.s3_bucket_policy.json
+}
+
+resource "aws_s3_bucket_acl" "example_bucket_acl" {
+  bucket = aws_s3_bucket.hugo.id
+  acl    = "private"
+}
+
+resource "aws_s3_bucket_website_configuration" "hugo" {
+  bucket = aws_s3_bucket.hugo.bucket
+
+  index_document {
+    suffix = "index.html"
   }
+
+  error_document {
+    key = "error.html"
+  }
+
+    routing_rule {
+      condition {
+        key_prefix_equals = "/"
+      }
+      redirect {
+        replace_key_with = "index.html"
+        host_name = local.dns_name
+      }
+    }
+}
+
+resource "aws_cloudfront_function" "redirect" {
+  name    = "redirect"
+  runtime = "cloudfront-js-1.0"
+  comment = "Redirect users from cloudfront to s3 real object name."
+  code    = file("${path.module}/redirect.js")
 }
 
 resource "aws_cloudfront_distribution" "s3_distribution" {
@@ -92,9 +124,9 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
       }
     }
 
-    lambda_function_association {
-      event_type = "origin-request"
-      lambda_arn = aws_lambda_function.redirect.qualified_arn
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.redirect.arn
     }
 
     viewer_protocol_policy = "redirect-to-https"
@@ -114,7 +146,7 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
   viewer_certificate {
     acm_certificate_arn      = data.aws_acm_certificate.acm_cert.arn
     ssl_support_method       = "sni-only"
-    minimum_protocol_version = "TLSv1.2_2019"
+    minimum_protocol_version = "TLSv1.2_2021"
   }
 
   custom_error_response {
