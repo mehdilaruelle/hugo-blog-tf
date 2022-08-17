@@ -34,5 +34,5 @@ override.tf.json
 .terraformrc
 terraform.rc
 
-# ZIP lambda file
-*.zip
+# Ignore Terraform Backend
+backend.tf
