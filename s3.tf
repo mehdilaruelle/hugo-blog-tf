@@ -69,15 +69,15 @@ resource "aws_s3_bucket_website_configuration" "hugo" {
     key = "error.html"
   }
 
-    routing_rule {
-      condition {
-        key_prefix_equals = "/"
-      }
-      redirect {
-        replace_key_with = "index.html"
-        host_name = local.dns_name
-      }
+  routing_rule {
+    condition {
+      key_prefix_equals = "/"
     }
+    redirect {
+      replace_key_with = "index.html"
+      host_name        = local.dns_name
+    }
+  }
 }
 
 resource "aws_cloudfront_function" "redirect" {

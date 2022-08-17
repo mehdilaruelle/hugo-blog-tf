@@ -9,5 +9,5 @@ variable "dns_name" {
 
 variable "cloudfront_price_class" {
   description = "The price class to use for CloudFront distribution."
-  value = "PriceClass_100"
+  value       = "PriceClass_100"
 }
