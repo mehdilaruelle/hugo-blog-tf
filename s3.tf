@@ -1,6 +1,7 @@
 locals {
   bucket_name = var.bucket_name
   dns_name    = var.dns_name
+  origin_name = "s3-cloudfront-hugo"
 }
 
 data "aws_acm_certificate" "acm_cert" {
@@ -17,13 +18,22 @@ data "aws_route53_zone" "domain_name" {
   private_zone = false
 }
 
-resource "aws_cloudfront_origin_access_identity" "origin_access_identity" {
-  comment = "oai_hugo"
+resource "aws_cloudfront_origin_access_control" "hugo" {
+  name                              = local.origin_name
+  description                       = "Origin Access Control for S3 bucket Hugo."
+  origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
 }
 
 data "aws_iam_policy_document" "s3_bucket_policy" {
   statement {
     sid = "1"
+
+    principals {
+      type        = "Service"
+      identifiers = ["cloudfront.amazonaws.com"]
+    }
 
     actions = [
       "s3:GetObject",
@@ -32,13 +42,10 @@ data "aws_iam_policy_document" "s3_bucket_policy" {
     resources = [
       "arn:aws:s3:::${local.bucket_name}/*",
     ]
-
-    principals {
-      type = "AWS"
-
-      identifiers = [
-        aws_cloudfront_origin_access_identity.origin_access_identity.iam_arn,
-      ]
+    condition {
+      test     = "StringLike"
+      variable = "AWS:SourceArn"
+      values   = [aws_cloudfront_distribution.s3_distribution.arn]
     }
   }
 }
@@ -53,31 +60,9 @@ resource "aws_s3_bucket_policy" "hugo" {
   policy = data.aws_iam_policy_document.s3_bucket_policy.json
 }
 
-resource "aws_s3_bucket_acl" "example_bucket_acl" {
+resource "aws_s3_bucket_acl" "hugo" {
   bucket = aws_s3_bucket.hugo.id
   acl    = "private"
-}
-
-resource "aws_s3_bucket_website_configuration" "hugo" {
-  bucket = aws_s3_bucket.hugo.bucket
-
-  index_document {
-    suffix = "index.html"
-  }
-
-  error_document {
-    key = "error.html"
-  }
-
-  routing_rule {
-    condition {
-      key_prefix_equals = "/"
-    }
-    redirect {
-      replace_key_with = "index.html"
-      host_name        = local.dns_name
-    }
-  }
 }
 
 resource "aws_cloudfront_function" "redirect" {
@@ -89,12 +74,9 @@ resource "aws_cloudfront_function" "redirect" {
 
 resource "aws_cloudfront_distribution" "s3_distribution" {
   origin {
-    domain_name = aws_s3_bucket.hugo.bucket_domain_name
-    origin_id   = "s3-cloudfront"
-
-    s3_origin_config {
-      origin_access_identity = aws_cloudfront_origin_access_identity.origin_access_identity.cloudfront_access_identity_path
-    }
+    domain_name              = aws_s3_bucket.hugo.bucket_regional_domain_name
+    origin_access_control_id = aws_cloudfront_origin_access_control.hugo.id
+    origin_id                = local.origin_name
   }
 
   enabled             = true
@@ -114,7 +96,7 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
       "HEAD",
     ]
 
-    target_origin_id = "s3-cloudfront"
+    target_origin_id = local.origin_name
 
     forwarded_values {
       query_string = false
