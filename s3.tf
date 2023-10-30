@@ -4,18 +4,38 @@ locals {
   origin_name = "s3-cloudfront-hugo"
 }
 
-data "aws_acm_certificate" "acm_cert" {
-  domain   = local.dns_name
-  provider = aws.aws_cloudfront
-  //CloudFront uses certificates from US-EAST-1 region only
-  statuses = [
-    "ISSUED",
-  ]
+resource "aws_acm_certificate" "hugo" {
+  provider          = aws.aws_cloudfront # CloudFront uses certificates from US-EAST-1 region only
+  domain_name       = local.dns_name
+  validation_method = "DNS"
 }
 
-data "aws_route53_zone" "domain_name" {
+data "aws_route53_zone" "hugo" {
   name         = local.dns_name
   private_zone = false
+}
+
+resource "aws_route53_record" "hugo" {
+  for_each = {
+    for dvo in aws_acm_certificate.hugo.domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  }
+
+  allow_overwrite = true
+  name            = each.value.name
+  records         = [each.value.record]
+  ttl             = 60
+  type            = each.value.type
+  zone_id         = data.aws_route53_zone.hugo.zone_id
+}
+
+resource "aws_acm_certificate_validation" "hugo" {
+  provider                = aws.aws_cloudfront # CloudFront uses certificates from US-EAST-1 region only
+  certificate_arn         = aws_acm_certificate.hugo.arn
+  validation_record_fqdns = [for record in aws_route53_record.hugo : record.fqdn]
 }
 
 resource "aws_cloudfront_origin_access_control" "hugo" {
@@ -126,7 +146,7 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
   }
 
   viewer_certificate {
-    acm_certificate_arn      = data.aws_acm_certificate.acm_cert.arn
+    acm_certificate_arn      = aws_acm_certificate.hugo.arn
     ssl_support_method       = "sni-only"
     minimum_protocol_version = "TLSv1.2_2021"
   }
@@ -142,7 +162,7 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
 }
 
 resource "aws_route53_record" "route53_record" {
-  zone_id = data.aws_route53_zone.domain_name.zone_id
+  zone_id = data.aws_route53_zone.hugo.zone_id
   name    = local.dns_name
   type    = "A"
 

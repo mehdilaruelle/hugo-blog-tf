@@ -6,6 +6,10 @@ variable "dns_name" {
   description = "The DNS name to use for your HUGO website."
 }
 
+variable "region" {
+  description = "The main region used by the AWS provider to deploy the solution."
+  default     = "eu-west-3"
+}
 
 variable "cloudfront_price_class" {
   description = "The price class to use for CloudFront distribution."
