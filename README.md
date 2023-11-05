@@ -3,6 +3,8 @@
 This project is aim to deploy the infrastructure needed by [Hugo](https://gohugo.io/) on [AWS](https://aws.amazon.com/).
 This infrastructure force the usage of HTTPS with a specific domain name.
 
+You can read [the dedicated blog post on this on my blog](https://mehdilaruelle.com/posts/2022/08/deploy-your-hugo-site-on-aws-with-terraform/).
+
 ## Prerequisites
 
 You need to a domain name (for HTTPS).
@@ -51,6 +53,24 @@ $ terraform init
 $ terraform plan
 $ terraform apply
 ```
+
+### **OPTIONAL** - Create a role for GitHub Action
+
+This stack can create a role for GitHub Action with the Action [configure-aws-credentials
+](https://github.com/aws-actions/configure-aws-credentials#configure-aws-credentials-for-github-actions).
+
+To use this option, you should define in your `terraform.tfvars` the following values:
+- `github_org` is the GitHub Organization name where your repository `hugo blog` is hosted in GitHub.
+  In our case, should be your (in my case `mehdilaruelle`).
+- `blog_hugo` is a list of GitHub repositories name to allow to assume the Web Identity role.
+  In our case, the name of the current repository (in my case `blog-hugo-tf`).
+
+You can also configure some optional variable based on your need like `iam_role_name`, `client_id_list`, etc (see below to have an exhaustive list).
+
+Then, do a `$ terraform apply` to create your role and do a `$ terraform output aws_role_arn` to get the role ARN to use
+for your GitHub Action.
+
+To learn more about it, [take a look into the blog post](https://mehdilaruelle.com/posts/2023/10/deploy-your-hugo-site-on-aws-with-terraform-v2/#setting-up-temporary-aws-credentials)
 
 ### Cleanup
 
