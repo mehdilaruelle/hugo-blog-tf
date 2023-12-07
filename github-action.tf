@@ -68,16 +68,27 @@ data "aws_iam_policy_document" "hugo" {
 
   statement {
     actions = [
-      "s3:PutObject",
-      "s3:DeleteObject",
-      "s3:PutBucketPolicy",
-      "s3:ListBucket",
-      "cloudfront:CreateInvalidation",
-      "s3:GetBucketPolicy"
+      "s3:ListBucket"
     ]
     resources = [
-      aws_s3_bucket.hugo.arn,
-      "${aws_s3_bucket.hugo.arn}/*",
+      aws_s3_bucket.hugo.arn
+    ]
+  }
+  statement {
+    actions = [
+      "s3:PutObject",
+      "s3:GetObject",
+      "s3:DeleteObject"
+    ]
+    resources = [
+      "${aws_s3_bucket.hugo.arn}/*"
+    ]
+  }
+  statement {
+    actions = [
+      "cloudfront:CreateInvalidation"
+    ]
+    resources = [
       aws_cloudfront_distribution.s3_distribution.arn
     ]
   }
